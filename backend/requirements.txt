@@ -1,0 +1,22 @@
+# =============================================================================
+# HH Goa 2026 — Voice-Enabled RAG: Python Dependencies
+# =============================================================================
+
+# --- Core Framework ---
+flask>=3.0.0
+
+# --- Configuration ---
+python-dotenv>=1.0.0
+
+# --- Dataset ---
+datasets>=2.14.0
+huggingface-hub>=0.16.0
+
+# --- Testing ---
+pytest>=7.0.0
+
+# --- Future (Step 2+) ---
+# sentence-transformers>=2.2.0
+# faiss-cpu>=1.7.0
+# torch>=2.0.0
+# transformers>=4.30.0

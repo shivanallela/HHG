@@ -1,0 +1,59 @@
+# =============================================================================
+# HH Goa 2026 — .gitignore
+# =============================================================================
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+*.egg
+
+# --- Environment ---
+.env
+.venv/
+venv/
+env/
+
+# --- Data (DO NOT commit large datasets) ---
+data/raw/
+data/processed/
+data/samples/
+!data/**/.gitkeep
+*.parquet
+*.arrow
+*.feather
+
+# --- Vector DB ---
+*.faiss
+*.index
+
+# --- Logs ---
+logs/
+*.log
+
+# --- IDE ---
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# --- OS ---
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Node (future frontend) ---
+node_modules/
+frontend/dist/
+frontend/build/
+
+# --- Misc ---
+.pytest_cache/
+.coverage
+htmlcov/
+*.prof
