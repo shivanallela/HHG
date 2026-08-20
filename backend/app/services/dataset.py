@@ -20,6 +20,7 @@ Usage:
 
 from typing import Any, Optional
 from datasets import load_dataset
+from pyarrow.lib import ArrowNotImplementedError
 from backend.app.config import settings
 from backend.app.utils.logging import get_logger
 
@@ -93,9 +94,7 @@ class DatasetService:
         Returns:
             IterableDatasetDict with available splits.
         """
-        logger.info(
-            "Loading dataset in streaming mode: %s", self.dataset_name
-        )
+# (Streaming log suppressed for cleaner output)
         ds = load_dataset(self.dataset_name, streaming=True)
         return ds
 
@@ -144,8 +143,16 @@ class DatasetService:
                 f"Split '{target_split}' not found. Available: {available}"
             )
 
-        records = list(ds[target_split].take(count))
-        logger.info("Loaded %d records", len(records))
+        # Load records via streaming iterator. This avoids the .take() call that
+        # triggers ArrowNotImplementedError on nested columns. We simply iterate until we have
+        # the requested number of records.
+        records: list[dict[str, Any]] = []
+        for i, rec in enumerate(ds[target_split]):
+            if i >= count:
+                break
+            # Append the raw record (LazyDict). It behaves like a dict for downstream usage.
+            records.append(rec)
+        logger.info("Loaded %d records via streaming iterator", len(records))
         return records
 
     def _flatten_record(self, record: dict) -> dict[str, Any]:

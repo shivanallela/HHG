@@ -33,11 +33,25 @@ class Config:
 
     # --- Embeddings ---
     EMBEDDING_MODEL: str = os.getenv(
-        "EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2"
+        "EMBEDDING_MODEL",
+        "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
     )
+    EMBEDDING_BATCH_SIZE: int = int(os.getenv("EMBEDDING_BATCH_SIZE", "64"))
+
+    # --- Chunking (Step 2) ---
+    CHUNKING_STRATEGY: str = os.getenv("CHUNKING_STRATEGY", "sentence")
+    CHUNK_SIZE: int = int(os.getenv("CHUNK_SIZE", "512"))
+    CHUNK_OVERLAP: int = int(os.getenv("CHUNK_OVERLAP", "64"))
+
+    # --- Retrieval (Step 2) ---
+    TOP_K: int = int(os.getenv("TOP_K", "5"))
+    FAISS_INDEX_TYPE: str = os.getenv("FAISS_INDEX_TYPE", "IndexFlatIP")
 
     # --- Vector DB ---
-    VECTOR_DB_PATH: str = os.getenv("VECTOR_DB_PATH", "data/processed/faiss_index")
+    VECTOR_DB_PATH: str = os.getenv(
+        "VECTOR_DB_PATH",
+        str(_project_root / "data" / "processed" / "faiss_index"),
+    )
 
     # --- Flask ---
     FLASK_ENV: str = os.getenv("FLASK_ENV", "development")
@@ -53,6 +67,7 @@ class Config:
     DATA_RAW_DIR: Path = _project_root / "data" / "raw"
     DATA_PROCESSED_DIR: Path = _project_root / "data" / "processed"
     DATA_SAMPLES_DIR: Path = _project_root / "data" / "samples"
+    INDEXES_DIR: Path = _project_root / "data" / "processed" / "faiss_index"
 
     @classmethod
     def validate(cls) -> list[str]:
