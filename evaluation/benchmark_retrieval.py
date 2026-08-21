@@ -76,7 +76,7 @@ def main():
 
     # Get queries from dataset
     safe_print("Loading queries from dataset...")
-    ds = DatasetService(sample_size=args.sample_size)
+    ds = DatasetService(dataset_config="hin", sample_size=args.sample_size)
     records = ds.load_sample(n=args.sample_size)
     pipeline = PreprocessingPipeline()
     documents = pipeline.process_records(records)

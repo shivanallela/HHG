@@ -94,36 +94,57 @@ def main():
     safe_print(f"  Top-K: {args.top_k}")
     safe_print(f"{'='*70}\n")
 
-    # Load dataset to get queries + relevance labels
-    safe_print("Loading dataset sample for evaluation...")
-    ds = DatasetService(sample_size=args.sample_size)
-    records = ds.load_sample(n=args.sample_size)
-    safe_print(f"  Loaded {len(records)} records\n")
+    # Load a small local evaluation sample if available, otherwise fallback to streaming dataset
+    sample_path = Path(settings.DATA_SAMPLES_DIR) / "sample.json"
+    if sample_path.exists():
+        safe_print(f"Loading local evaluation sample from {sample_path}")
+        with open(sample_path, "r", encoding="utf-8") as f:
+            records = json.load(f)
+        safe_print(f"  Loaded {len(records)} local records\n")
+    else:
+        safe_print("Loading dataset sample for evaluation via streaming...")
+        ds = DatasetService(dataset_config="hin", sample_size=args.sample_size)
+        records = ds.load_streaming_sample(n=args.sample_size)
+        safe_print(f"  Loaded {len(records)} records\n")
 
     # Preprocess to get document IDs with relevance info
     pipeline = PreprocessingPipeline()
     documents = pipeline.process_records(records)
     safe_print(f"  Preprocessed to {len(documents)} documents\n")
 
-    # Build query -> relevant doc_ids mapping using is_selected labels
+    # Build query -> relevant chunk_ids mapping using index metadata
     query_to_relevant: dict[str, set[str]] = {}
     query_to_text: dict[str, str] = {}
 
-    for doc in documents:
-        query = doc.metadata.get("eng_query", "")
-        is_relevant = doc.metadata.get("is_relevant", 0)
-        query_id = str(doc.metadata.get("query_id", ""))
-
-        if not query or not query.strip():
-            continue
-
-        key = f"{query_id}:{query[:50]}"
-        if key not in query_to_relevant:
-            query_to_relevant[key] = set()
-            query_to_text[key] = query
-
-        if is_relevant == 1:
-            query_to_relevant[key].add(doc.document_id)
+    # Load metadata from the index directory
+    metadata_path = Path(settings.INDEXES_DIR) / args.strategy / "metadata.json"
+    if metadata_path.exists():
+        with open(metadata_path, "r", encoding="utf-8") as f:
+            metadata_list = json.load(f)
+        for meta in metadata_list:
+            qid = meta["metadata"].get("query_id", "")
+            query = meta["metadata"].get("eng_query", "")
+            if not qid or not query:
+                continue
+            key = f"{qid}:{query[:50]}"
+            if meta["metadata"].get("is_relevant") == 1:
+                query_to_relevant.setdefault(key, set()).add(meta["chunk_id"])
+                query_to_text.setdefault(key, query)
+    else:
+        safe_print(f"Metadata file not found at {metadata_path}, falling back to document_id relevance.")
+        # Fallback: use original document_id based relevance (from preprocessing documents)
+        for doc in documents:
+            query = doc.metadata.get("eng_query", "")
+            is_relevant = doc.metadata.get("is_relevant", 0)
+            query_id = str(doc.metadata.get("query_id", ""))
+            if not query or not query.strip():
+                continue
+            key = f"{query_id}:{query[:50]}"
+            if key not in query_to_relevant:
+                query_to_relevant[key] = set()
+                query_to_text[key] = query
+            if is_relevant == 1:
+                query_to_relevant[key].add(doc.document_id)
 
     # Filter queries that have at least one relevant doc
     eval_queries = {
@@ -143,7 +164,6 @@ def main():
     else:
         metrics_available = True
 
-    # Load retrieval service
     safe_print("\nLoading retrieval service...")
     try:
         base_path = args.index_path or str(settings.INDEXES_DIR)
@@ -154,6 +174,12 @@ def main():
         safe_print(f"ERROR: Index not found: {e}")
         safe_print(f"Run: python -m scripts.build_index --strategy {args.strategy}")
         return
+
+    # Warm-up: run a dummy query to initialize model and cache index
+    try:
+        _ = retrieval.retrieve("warmup query for model init", top_k=args.top_k)
+    except Exception as e:
+        logger.warning(f"Warm-up retrieval failed: {e}")
 
     # If no labeled queries, use all queries for latency-only evaluation
     if not metrics_available:

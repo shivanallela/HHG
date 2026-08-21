@@ -76,7 +76,7 @@ class DatasetService:
         sample_size: Optional[int] = None,
     ):
         self.dataset_name = dataset_name or settings.DATASET_NAME
-        self.dataset_config = dataset_config or "default"
+        self.dataset_config = dataset_config or None
         self.dataset_split = dataset_split or settings.DATASET_SPLIT
         self.sample_size = sample_size or settings.DATASET_SAMPLE_SIZE
 
@@ -86,7 +86,6 @@ class DatasetService:
             self.dataset_split,
             self.sample_size,
         )
-
     def _load_streaming(self):
         """
         Load the dataset in streaming mode (no full download).
@@ -94,8 +93,14 @@ class DatasetService:
         Returns:
             IterableDatasetDict with available splits.
         """
-# (Streaming log suppressed for cleaner output)
-        ds = load_dataset(self.dataset_name, streaming=True)
+                # (Streaming log suppressed for cleaner output)
+        # (Streaming log suppressed for cleaner output)
+        # Load dataset in streaming mode using specified config if provided
+        if self.dataset_config:
+            ds = load_dataset(self.dataset_name, streaming=True, config=self.dataset_config)
+        else:
+            ds = load_dataset(self.dataset_name, streaming=True)
+        return ds
         return ds
 
     def get_available_splits(self) -> list[str]:
@@ -121,7 +126,7 @@ class DatasetService:
         split: Optional[str] = None,
     ) -> list[dict[str, Any]]:
         """
-        Load a sample of n records from the specified split via streaming.
+        Load a sample of n records from the specified split.
 
         Args:
             n: Number of records to sample (defaults to self.sample_size).
@@ -136,23 +141,26 @@ class DatasetService:
             "Loading %d records from split '%s'", count, target_split
         )
 
-        ds = self._load_streaming()
-        if target_split not in ds:
-            available = list(ds.keys())
-            raise ValueError(
-                f"Split '{target_split}' not found. Available: {available}"
-            )
+        ds = load_dataset(self.dataset_name, split=target_split)
+        # Select the first `count` records (or the whole split if smaller)
+        subset = ds.select(range(min(count, len(ds))))
+        records = [dict(r) for r in subset]
+        
+        logger.info("Loaded %d records", len(records))
+        return records
 
-        # Load records via streaming iterator. This avoids the .take() call that
-        # triggers ArrowNotImplementedError on nested columns. We simply iterate until we have
-        # the requested number of records.
-        records: list[dict[str, Any]] = []
-        for i, rec in enumerate(ds[target_split]):
-            if i >= count:
+    def load_streaming_sample(self, n: int = 10, split: Optional[str] = None) -> list[dict[str, Any]]:
+        """
+        Load a small sample from the streaming dataset to avoid full downloads.
+        """
+        target_split = split or self.dataset_split
+        ds = self._load_streaming()
+        
+        records = []
+        for i, record in enumerate(ds[target_split]):
+            if i >= n:
                 break
-            # Append the raw record (LazyDict). It behaves like a dict for downstream usage.
-            records.append(rec)
-        logger.info("Loaded %d records via streaming iterator", len(records))
+            records.append(dict(record))
         return records
 
     def _flatten_record(self, record: dict) -> dict[str, Any]:
