@@ -13,7 +13,11 @@ load_dotenv(_project_root / ".env")
 
 
 class Config:
-    """Application configuration loaded from environment variables."""
+    """Application configuration loaded from environment variables.
+
+    Existing settings are preserved; new Step 5 settings are added with
+    defaults that keep the current behaviour unchanged.
+    """
 
     # --- Project ---
     PROJECT_NAME: str = "hh-goa-voice-rag"
@@ -33,11 +37,40 @@ class Config:
 
     # --- Embeddings ---
     EMBEDDING_MODEL: str = os.getenv(
-        "EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2"
+        "EMBEDDING_MODEL",
+        "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
     )
+    EMBEDDING_BATCH_SIZE: int = int(os.getenv("EMBEDDING_BATCH_SIZE", "64"))
+
+    # --- Step 5 specific settings (optimisation flags) ---
+    # Size of the LRU cache for embeddings. 0 disables caching.
+    EMBEDDING_CACHE_SIZE: int = int(os.getenv("EMBEDDING_CACHE_SIZE", "0"))
+    # FAISS nprobe – None means use the index default.
+    FAISS_NPROBE: int | None = (
+        int(os.getenv("FAISS_NPROBE")) if os.getenv("FAISS_NPROBE") else None
+    )
+    # Whether to load a quantised ONNX embedding model.
+    USE_QUANTIZED_EMBEDDINGS: bool = os.getenv("USE_QUANTIZED_EMBEDDINGS", "false").lower() in ("true", "1")
+    # Async retrieval flag – currently unused but kept for future.
+    ASYNC_RETRIEVAL: bool = os.getenv("ASYNC_RETRIEVAL", "false").lower() in ("true", "1")
+    # Batch embedding flag – disables per‑query embedding when true.
+    BATCH_EMBEDDING: bool = os.getenv("BATCH_EMBEDDING", "false").lower() in ("true", "1")
+    # Optional override of the FAISS index class name.
+    FAISS_INDEX_TYPE: str = os.getenv("FAISS_INDEX_TYPE", "IndexFlatIP")
+
+    # --- Chunking (Step 2) ---
+    CHUNKING_STRATEGY: str = os.getenv("CHUNKING_STRATEGY", "sentence")
+    CHUNK_SIZE: int = int(os.getenv("CHUNK_SIZE", "512"))
+    CHUNK_OVERLAP: int = int(os.getenv("CHUNK_OVERLAP", "64"))
+
+    # --- Retrieval (Step 2) ---
+    TOP_K: int = int(os.getenv("TOP_K", "5"))
 
     # --- Vector DB ---
-    VECTOR_DB_PATH: str = os.getenv("VECTOR_DB_PATH", "data/processed/faiss_index")
+    VECTOR_DB_PATH: str = os.getenv(
+        "VECTOR_DB_PATH",
+        str(_project_root / "data" / "processed" / "faiss_index"),
+    )
 
     # --- Flask ---
     FLASK_ENV: str = os.getenv("FLASK_ENV", "development")
@@ -53,6 +86,7 @@ class Config:
     DATA_RAW_DIR: Path = _project_root / "data" / "raw"
     DATA_PROCESSED_DIR: Path = _project_root / "data" / "processed"
     DATA_SAMPLES_DIR: Path = _project_root / "data" / "samples"
+    INDEXES_DIR: Path = _project_root / "data" / "processed" / "faiss_index"
 
     @classmethod
     def validate(cls) -> list[str]:

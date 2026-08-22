@@ -1,0 +1,48 @@
+# =============================================================================
+# HH Goa 2026 — Experiment Configuration
+# =============================================================================
+# Change these values to run different experiments without modifying code.
+
+# --- Dataset ---
+dataset:
+  name: "ai4bharat/MSMARCO-XI"
+  split: "train"
+  sample_size: 10000         # 10k for dev; change to 50k/100k for eval
+  language_filter: null       # null = all languages; "hin" for Hindi only
+
+# --- Preprocessing ---
+preprocessing:
+  min_doc_chars: 20
+  max_doc_chars: 50000
+  normalize_unicode: true
+  normalize_whitespace: true
+  remove_duplicates: true
+
+# --- Chunking ---
+chunking:
+  strategy: "sentence"        # fixed | overlap | sentence | semantic | metadata
+  chunk_size: 512
+  overlap: 64                 # only used by overlap strategy
+  similarity_threshold: 0.5   # only used by semantic strategy
+  min_chunk_size: 50          # only used by semantic strategy
+
+# --- Embeddings ---
+embeddings:
+  model: "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+  batch_size: 64
+  normalize: true
+  device: null                # null = auto (GPU if available)
+
+# --- FAISS ---
+faiss:
+  index_type: "IndexFlatIP"   # IndexFlatIP | IndexFlatL2
+
+# --- Retrieval ---
+retrieval:
+  top_k: 5
+
+# --- Evaluation ---
+evaluation:
+  num_queries: 100            # queries for retrieval benchmark
+  benchmark_iterations: 3     # repeat for stability
+  k_values: [1, 3, 5, 10]    # Recall@K / Precision@K values

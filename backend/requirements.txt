@@ -15,8 +15,8 @@ huggingface-hub>=0.16.0
 # --- Testing ---
 pytest>=7.0.0
 
-# --- Future (Step 2+) ---
-# sentence-transformers>=2.2.0
-# faiss-cpu>=1.7.0
-# torch>=2.0.0
-# transformers>=4.30.0
+# --- Step 2: Embeddings & Retrieval ---
+sentence-transformers>=2.2.0
+faiss-cpu>=1.7.0
+numpy>=1.24.0
+pyyaml>=6.0.0

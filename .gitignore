@@ -30,6 +30,10 @@ data/samples/
 # --- Vector DB ---
 *.faiss
 *.index
+data/processed/faiss_index/
+
+# --- Evaluation results (generated) ---
+evaluation/results/
 
 # --- Logs ---
 logs/
