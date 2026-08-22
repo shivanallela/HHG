@@ -21,6 +21,7 @@ Usage:
 from typing import Any, Optional
 from datasets import load_dataset
 from pyarrow.lib import ArrowNotImplementedError
+from huggingface_hub import hf_hub_download
 from backend.app.config import settings
 from backend.app.utils.logging import get_logger
 
@@ -76,7 +77,7 @@ class DatasetService:
         sample_size: Optional[int] = None,
     ):
         self.dataset_name = dataset_name or settings.DATASET_NAME
-        self.dataset_config = dataset_config or None
+        self.dataset_config = dataset_config or "default"
         self.dataset_split = dataset_split or settings.DATASET_SPLIT
         self.sample_size = sample_size or settings.DATASET_SAMPLE_SIZE
 
@@ -93,14 +94,11 @@ class DatasetService:
         Returns:
             IterableDatasetDict with available splits.
         """
-                # (Streaming log suppressed for cleaner output)
-        # (Streaming log suppressed for cleaner output)
-        # Load dataset in streaming mode using specified config if provided
-        if self.dataset_config:
+        # Load dataset in streaming mode; omit config when using the default "default"
+        if self.dataset_config and self.dataset_config != "default":
             ds = load_dataset(self.dataset_name, streaming=True, config=self.dataset_config)
         else:
             ds = load_dataset(self.dataset_name, streaming=True)
-        return ds
         return ds
 
     def get_available_splits(self) -> list[str]:
@@ -138,20 +136,61 @@ class DatasetService:
         count = n or self.sample_size
         target_split = split or self.dataset_split
         logger.info(
-            "Loading %d records from split '%s'", count, target_split
+            "Loading %d records from split '%s' using a single language parquet file",
+            count,
+            target_split,
         )
 
-        ds = load_dataset(self.dataset_name, split=target_split)
-        # Select the first `count` records (or the whole split if smaller)
-        subset = ds.select(range(min(count, len(ds))))
-        records = [dict(r) for r in subset]
+        # Validate the requested split before attempting any download or streaming.
+        if target_split not in {"train", "validation"}:
+            raise ValueError(f"Split '{target_split}' not found in dataset")
         
-        logger.info("Loaded %d records", len(records))
-        return records
+        # Choose the first available language file for the split.
+        lang_code = next(iter(AVAILABLE_LANGUAGES))
+        suffix = "train" if target_split == "train" else "validation"
+        filename = f"{target_split}/{lang_code}{suffix}.parquet"
+        try:
+            data_file_path = hf_hub_download(
+                repo_id=self.dataset_name,
+                filename=filename,
+                repo_type="dataset",
+            )
+            logger.debug("Downloaded parquet file %s", filename)
+        except Exception as e:
+            logger.error("Failed to download %s: %s", filename, e)
+            raise
+
+        import pandas as pd
+        try:
+            # fastparquet often handles nested structures better.
+            df = pd.read_parquet(data_file_path, engine="fastparquet")
+        except Exception as e:
+            logger.debug("fastparquet read failed (%s); falling back to pyarrow", e)
+            df = pd.read_parquet(data_file_path, engine="pyarrow")
+
+        limit = min(count, len(df))
+        records = df.head(limit).to_dict(orient="records")
+        # Reconstruct nested dictionaries for fields that were flattened by fastparquet (e.g., meta.*, passages.*)
+        reconstructed = []
+        for rec in records:
+            new_rec = {}
+            for key, value in rec.items():
+                if '.' in key:
+                    top, sub = key.split('.', 1)
+                    if top not in new_rec or not isinstance(new_rec[top], dict):
+                        new_rec[top] = {}
+                    new_rec[top][sub] = value
+                else:
+                    new_rec[key] = value
+            reconstructed.append(new_rec)
+        logger.info("Loaded %d records from %s", len(reconstructed), data_file_path)
+        return reconstructed
 
     def load_streaming_sample(self, n: int = 10, split: Optional[str] = None) -> list[dict[str, Any]]:
-        """
-        Load a small sample from the streaming dataset to avoid full downloads.
+        """Deprecated: streaming sample loading. Kept for backward compatibility.
+
+        This method still uses ``streaming=True`` and may raise ``ArrowNotImplementedError``
+        for nested fields. Prefer :meth:`load_sample` which uses a non‑streaming slice.
         """
         target_split = split or self.dataset_split
         ds = self._load_streaming()
