@@ -14,4 +14,5 @@ if __name__ == "__main__":
         host=settings.FLASK_HOST,
         port=settings.FLASK_PORT,
         debug=settings.FLASK_DEBUG,
+        use_reloader=False,
     )

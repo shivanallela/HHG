@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GoaVoice RAG — Minimalist Voice Assistant</title>
+    <!-- Outfit Font from Google Fonts for modern luxury tech look -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="index.css">
+</head>
+<body>
+    <div class="glass-bg"></div>
+
+    <div class="container">
+        <!-- Header -->
+        <header>
+            <div class="logo-wrapper">
+                <span class="logo-badge">Indic</span>
+                <h1>GoaVoice RAG</h1>
+            </div>
+            <p class="subtitle">Voice-Enabled Retrieval Augmented Generation Assistant</p>
+        </header>
+
+        <!-- Main Visualizer & Controller -->
+        <main class="visualizer-section">
+            <button id="mic-btn" class="mic-button" aria-label="Activate Voice Assistant">
+                <div class="mic-pulse pulse-1"></div>
+                <div class="mic-pulse pulse-2"></div>
+                <div class="mic-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 1v11m0 0a4.5 4.5 0 100-9m0 9a4.5 4.5 0 000-9" stroke-linecap="round"/>
+                        <path d="M19 10v1a7 7 0 01-14 0v-1M12 18v4M8 22h8" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </div>
+            </button>
+            <div id="status-text" class="status-message">Click the mic to speak</div>
+        </main>
+
+        <!-- Dynamic Output Section -->
+        <section id="output-section" class="output-container hidden">
+            <!-- Query -->
+            <div class="glass-card query-card">
+                <div class="card-label">User Query</div>
+                <p id="query-display" class="query-text"></p>
+            </div>
+
+            <!-- Answer -->
+            <div class="glass-card answer-card">
+                <div class="card-label">Response</div>
+                <p id="answer-display" class="answer-text"></p>
+                <button id="speak-btn" class="speak-btn" title="Repeat Voice Response">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                        <path d="M19.07 4.93a10 10 0 010 14.14M15.54 8.46a5 5 0 010 7.07"/>
+                    </svg>
+                    <span>Read Aloud</span>
+                </button>
+            </div>
+
+            <!-- Sleek Performance Dashboard -->
+            <div class="glass-card stats-card">
+                <div class="card-label">Performance Latency</div>
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <span class="stat-val" id="stat-embed">0ms</span>
+                        <span class="stat-lbl">Embedding</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-val" id="stat-faiss">0ms</span>
+                        <span class="stat-lbl">FAISS Search</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-val" id="stat-llm">0ms</span>
+                        <span class="stat-lbl">LLM Generation</span>
+                    </div>
+                    <div class="stat-item highlight">
+                        <span class="stat-val" id="stat-total">0ms</span>
+                        <span class="stat-lbl">Total RAG</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sources / Grounding Check -->
+            <div class="glass-card sources-card">
+                <div class="sources-header" id="sources-toggle">
+                    <div class="card-label">Grounded Reference Passages</div>
+                    <span class="toggle-icon">▼</span>
+                </div>
+                <div id="sources-list" class="sources-list collapsed">
+                    <!-- Dynamic source cards will append here -->
+                </div>
+            </div>
+        </section>
+
+        <!-- Option Tray / Input Fallback -->
+        <section class="tray-section">
+            <div class="input-fallback">
+                <input type="text" id="text-input" placeholder="Type query instead...">
+                <button id="send-btn">Send</button>
+            </div>
+            <div class="language-selector">
+                <label for="lang-select">Response Language:</label>
+                <select id="lang-select">
+                    <option value="en">English (Default)</option>
+                    <option value="hi">Hindi (हिन्दी)</option>
+                    <option value="mr">Marathi (मराठी)</option>
+                    <option value="gu">Gujarati (ગુજરાતી)</option>
+                    <option value="ta">Tamil (தமிழ்)</option>
+                    <option value="te">Telugu (తెలుగు)</option>
+                </select>
+            </div>
+        </section>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

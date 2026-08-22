@@ -39,7 +39,17 @@ def create_app() -> Flask:
 
     # --- Register blueprints ---
     from backend.app.routes.health import health_bp
+    from backend.app.routes.query import query_bp
     app.register_blueprint(health_bp)
+    app.register_blueprint(query_bp)
+
+    # --- CORS support ---
+    @app.after_request
+    def add_cors_headers(response):
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type,Authorization"
+        response.headers["Access-Control-Allow-Methods"] = "GET,POST,OPTIONS"
+        return response
 
     # --- Error handlers ---
     @app.errorhandler(404)
