@@ -1,6 +1,8 @@
 // GoaVoice RAG Frontend Controller
 
-const API_BASE_URL = 'http://127.0.0.1:5000';
+const API_BASE_URL = window.location.origin.includes('localhost') || window.location.origin.includes('127.0.0.1') || window.location.origin.includes('file://')
+    ? 'http://127.0.0.1:5000'
+    : window.location.origin;
 
 // DOM elements
 const micBtn = document.getElementById('mic-btn');
