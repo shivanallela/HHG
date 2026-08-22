@@ -26,7 +26,7 @@ from backend.app.services.retrieval import RetrievalService
 from backend.app.config import settings
 
 
-def safe_print(text: str):
+def safe_print(text: str = ""):
     try:
         print(text)
     except UnicodeEncodeError:
