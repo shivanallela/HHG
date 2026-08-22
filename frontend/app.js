@@ -1,8 +1,6 @@
 // GoaVoice RAG Frontend Controller
 
-const API_BASE_URL = window.location.origin.includes('localhost') || window.location.origin.includes('127.0.0.1') || window.location.origin.includes('file://')
-    ? 'http://127.0.0.1:5000'
-    : window.location.origin;
+const apiUrlInput = document.getElementById('api-url-input');
 
 // DOM elements
 const micBtn = document.getElementById('mic-btn');
@@ -147,7 +145,8 @@ async function runRAGQuery(queryText) {
     const selectedLang = langSelect.value;
     
     try {
-        const response = await fetch(`${API_BASE_URL}/api/query`, {
+        const apiBaseUrl = apiUrlInput ? apiUrlInput.value.trim() : 'http://127.0.0.1:5000';
+        const response = await fetch(`${apiBaseUrl}/api/query`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
