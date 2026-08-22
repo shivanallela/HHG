@@ -13,7 +13,11 @@ load_dotenv(_project_root / ".env")
 
 
 class Config:
-    """Application configuration loaded from environment variables."""
+    """Application configuration loaded from environment variables.
+
+    Existing settings are preserved; new Step 5 settings are added with
+    defaults that keep the current behaviour unchanged.
+    """
 
     # --- Project ---
     PROJECT_NAME: str = "hh-goa-voice-rag"
@@ -38,6 +42,22 @@ class Config:
     )
     EMBEDDING_BATCH_SIZE: int = int(os.getenv("EMBEDDING_BATCH_SIZE", "64"))
 
+    # --- Step 5 specific settings (optimisation flags) ---
+    # Size of the LRU cache for embeddings. 0 disables caching.
+    EMBEDDING_CACHE_SIZE: int = int(os.getenv("EMBEDDING_CACHE_SIZE", "0"))
+    # FAISS nprobe – None means use the index default.
+    FAISS_NPROBE: int | None = (
+        int(os.getenv("FAISS_NPROBE")) if os.getenv("FAISS_NPROBE") else None
+    )
+    # Whether to load a quantised ONNX embedding model.
+    USE_QUANTIZED_EMBEDDINGS: bool = os.getenv("USE_QUANTIZED_EMBEDDINGS", "false").lower() in ("true", "1")
+    # Async retrieval flag – currently unused but kept for future.
+    ASYNC_RETRIEVAL: bool = os.getenv("ASYNC_RETRIEVAL", "false").lower() in ("true", "1")
+    # Batch embedding flag – disables per‑query embedding when true.
+    BATCH_EMBEDDING: bool = os.getenv("BATCH_EMBEDDING", "false").lower() in ("true", "1")
+    # Optional override of the FAISS index class name.
+    FAISS_INDEX_TYPE: str = os.getenv("FAISS_INDEX_TYPE", "IndexFlatIP")
+
     # --- Chunking (Step 2) ---
     CHUNKING_STRATEGY: str = os.getenv("CHUNKING_STRATEGY", "sentence")
     CHUNK_SIZE: int = int(os.getenv("CHUNK_SIZE", "512"))
@@ -45,7 +65,6 @@ class Config:
 
     # --- Retrieval (Step 2) ---
     TOP_K: int = int(os.getenv("TOP_K", "5"))
-    FAISS_INDEX_TYPE: str = os.getenv("FAISS_INDEX_TYPE", "IndexFlatIP")
 
     # --- Vector DB ---
     VECTOR_DB_PATH: str = os.getenv(

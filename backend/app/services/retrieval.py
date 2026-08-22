@@ -12,7 +12,7 @@ from backend.app.services.embeddings import EmbeddingService
 from backend.app.services.vector_store import VectorStore
 from backend.app.config import settings
 from backend.app.utils.logging import get_logger
-
+from backend.app.services.latency import LatencyTracker
 logger = get_logger("retrieval")
 
 # Default from env or fallback
@@ -53,6 +53,7 @@ class RetrievalService:
         self,
         query: str,
         top_k: Optional[int] = None,
+        tracker: Optional[LatencyTracker] = None,
     ) -> RetrievalResponse:
         """
         Retrieve top-K chunks for a query.
@@ -70,19 +71,29 @@ class RetrievalService:
             raise RuntimeError("No index loaded. Call load_index() first.")
 
         k = top_k or self.top_k
-        total_start = time.time()
+        # Initialize tracker if not provided
+        if tracker is None:
+            tracker = LatencyTracker()
+        tracker.start("total")
 
         # 1. Embed query
-        embed_start = time.time()
+        tracker.start("embedding")
         query_embedding = self.embedding_service.embed(query)
-        embed_ms = (time.time() - embed_start) * 1000
+        tracker.stop("embedding")
+
+        # Adjust nprobe if configured and index supports it
+        if settings.FAISS_NPROBE is not None and hasattr(self.vector_store.index, "nprobe"):
+            self.vector_store.index.nprobe = settings.FAISS_NPROBE
 
         # 2. FAISS search
-        search_start = time.time()
+        tracker.start("faiss_search")
         raw_results = self.vector_store.search(query_embedding, top_k=k)
-        search_ms = (time.time() - search_start) * 1000
+        tracker.stop("faiss_search")
+        tracker.stop("total")
 
-        total_ms = (time.time() - total_start) * 1000
+        embed_ms = tracker.elapsed("embedding")
+        search_ms = tracker.elapsed("faiss_search")
+        total_ms = tracker.elapsed("total")
 
         # 3. Build structured response
         results = [
@@ -116,3 +127,64 @@ class RetrievalService:
             total_ms,
         )
         return response
+
+    def retrieve_batch(
+        self,
+        queries: list[str],
+        top_k: Optional[int] = None,
+        tracker: Optional[LatencyTracker] = None,
+    ) -> list[RetrievalResponse]:
+        """Retrieve results for a batch of queries.
+
+        If settings.BATCH_EMBEDDING is True, embeddings are computed in a single batch.
+        Otherwise, each query is embedded individually.
+        Returns a list of RetrievalResponse objects, one per query.
+        """
+        if not queries:
+            raise ValueError("Query list cannot be empty")
+        k = top_k or self.top_k
+        # Initialise tracker if needed
+        if tracker is None:
+            tracker = LatencyTracker()
+        # Apply nprobe if configured (once for all searches)
+        if settings.FAISS_NPROBE is not None and hasattr(self.vector_store.index, "nprobe"):
+            self.vector_store.index.nprobe = settings.FAISS_NPROBE
+
+        # Embedding step
+        if settings.BATCH_EMBEDDING:
+            tracker.start("embedding_batch")
+            embeddings = self.embedding_service.embed_batch(queries)
+            tracker.stop("embedding_batch")
+        else:
+            embeddings = [self.embedding_service.embed(q) for q in queries]
+
+        responses: list[RetrievalResponse] = []
+        for query, query_emb in zip(queries, embeddings):
+            # Search per query
+            tracker.start("faiss_search")
+            raw_results = self.vector_store.search(query_emb, top_k=k)
+            tracker.stop("faiss_search")
+
+            results = [
+                RetrievalResult(
+                    chunk_id=r["chunk_id"],
+                    document_id=r["document_id"],
+                    text=r["text"],
+                    score=r["score"],
+                    rank=r["rank"],
+                    metadata=r["metadata"],
+                )
+                for r in raw_results
+            ]
+            resp = RetrievalResponse(
+                query=query,
+                results=results,
+                embedding_latency_ms=tracker.elapsed("embedding_batch") if settings.BATCH_EMBEDDING else tracker.elapsed("embedding"),
+                search_latency_ms=tracker.elapsed("faiss_search"),
+                total_latency_ms=0.0,
+                top_k=k,
+                index_type=self.vector_store.index_type,
+                strategy=raw_results[0]["strategy"] if raw_results else "",
+            )
+            responses.append(resp)
+        return responses
